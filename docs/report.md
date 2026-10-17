@@ -8,7 +8,7 @@
 
 ---
 
-## 1. Objective
+## Overview
 
 An end-to-end, reproducible pipeline for a binary classifier predicting
 heart disease risk from patient vitals — covering data ingestion, EDA,
@@ -16,38 +16,33 @@ feature engineering, model training with experiment tracking, automated
 testing, CI/CD, containerization, Kubernetes deployment via Helm, and
 monitoring.
 
-Every stage described here was actually executed during development: the
-dataset was pulled live from UCI, both models were trained and tracked in
-MLflow (with the winner registered in the Model Registry), the full
-`unittest` suite was run, the Docker image was built and smoke-tested,
-and the complete stack — API, Ingress, Prometheus, and Grafana — was
-deployed to a local Minikube cluster with a single `helm install` and
-verified against real traffic. Screenshots for each stage are in
-`screenshots/`.
+Every stage described in this report was actually executed during
+development: the dataset was pulled live from UCI, both models were
+trained and tracked in MLflow (with the winner registered in the Model
+Registry), the full `unittest` suite was run, the Docker image was built
+and smoke-tested, and the complete stack — API, Ingress, Prometheus, and
+Grafana — was deployed to a local Minikube cluster with a single
+`helm install` and verified against real traffic. Screenshots for each
+stage are in `screenshots/`.
+
+This report is organized into three parts followed by an appendix:
+
+- **Part I — Problem & Data:** the dataset and what the EDA revealed
+- **Part II — Modelling:** feature engineering, model training/results, and experiment tracking
+- **Part III — Engineering & Operations:** testing, CI/CD, containerization, deployment, and monitoring
+- **Appendix:** setup instructions, architecture diagram, repository link
 
 ---
 
-## 2. Setup / Install Instructions
+# Part I — Problem & Data
 
-```bash
-git clone https://github.com/shashankp1502/mlops-assignment.git
-cd mlops-assignment
+## 1. Objective
 
-python3.12 -m venv .venv
-source .venv/bin/activate
-make install
+Build a classifier that predicts heart disease risk from patient vitals,
+packaged and operated the way a small production service actually would
+be — not just a notebook that produces a number.
 
-make ingest     # fetches data/raw/heart_disease.csv from UCI
-make train      # trains + tracks in MLflow, saves artifacts/model/
-make test       # 41 unittest cases, ~4s
-make serve      # API on http://localhost:8080
-```
-
-Docker and Kubernetes/Helm instructions are in `README.md`.
-
----
-
-## 3. Dataset & EDA
+## 2. Dataset & EDA
 
 **Dataset:** UCI Cleveland Heart Disease dataset — 303 patients, 13
 features, binary target (collapsed from the original 0-4 severity score).
@@ -57,7 +52,7 @@ grouped as configuration. Not committed to git — re-fetched on demand in
 ~2 seconds.
 
 **Missing data:** 6 of 303 rows (2%) have gaps, confined to `ca` and
-`thal`. Handled with `KNNImputer` for continuous columns (see Section 4)
+`thal`. Handled with `KNNImputer` for continuous columns (see Part II)
 rather than dropping rows.
 
 **Key EDA findings** (full notebook: `notebooks/exploratory_analysis.ipynb`):
@@ -82,7 +77,9 @@ rather than dropping rows.
 
 ---
 
-## 4. Feature Engineering & Modelling Choices
+# Part II — Modelling
+
+## 3. Feature Engineering
 
 Implemented in `heart_risk/transform.py` as a two-stage pipeline: an
 `AgeGroupBucketer` transformer (adds a derived `age_group` column, bucketing
@@ -98,6 +95,8 @@ age into young/middle/senior), feeding into a `ColumnTransformer`:
 This produces **14 output features** (13 raw + 1 engineered), versus what
 a one-hot approach would produce (20+) — deliberately compact given the
 small sample size.
+
+## 4. Model Training & Results
 
 **Models trained** (`heart_risk/modeling/train.py`): a single
 **Decision Tree** and a **Gradient Boosting** ensemble, each tuned via
@@ -143,8 +142,6 @@ consistent with the EDA.
 
 ![Gradient Boosting feature importance](../screenshots/model/gradient_boosting_feature_importance.png)
 
----
-
 ## 5. Experiment Tracking (MLflow)
 
 Tracking store: **`sqlite:///mlflow.db`** (not the default local file
@@ -161,19 +158,13 @@ experiment with:
 - **Registry:** the champion is registered as `heart-risk-classifier`,
   giving it a version number independent of the underlying MLflow run
 
-```bash
-mlflow ui --backend-store-uri sqlite:///mlflow.db
-```
-
 Side-by-side run comparison from the MLflow UI (`gradient_boosting` vs.
-`decision_tree`, matching the results table in Section 4 exactly,
-including the `champion=true` tag set on the winner):
+`decision_tree`, matching the results table above exactly, including the
+`champion=true` tag set on the winner):
 
 ![MLflow run comparison - parameters and tags](../screenshots/model_comaprision.png)
 
 ![MLflow run comparison - metrics](../screenshots/model/comparision_matrix.png)
-
----
 
 ## 6. Model Packaging & Reproducibility
 
@@ -194,7 +185,9 @@ including the `champion=true` tag set on the winner):
 
 ---
 
-## 7. Testing & CI/CD
+# Part III — Engineering & Operations
+
+## 7. Testing Strategy
 
 **Unit tests** (`tests/`, 41 cases, Python's built-in **`unittest`**
 framework — `TestCase` classes with `setUp`/`tearDown`, chosen over
@@ -207,8 +200,10 @@ and the FastAPI service's endpoints. No test touches the network or
 depends on `artifacts/model/` already existing — a synthetic fixture
 dataset (`tests/fixtures.py`) stands in for the real data.
 
-**CI/CD** (`.github/workflows/pipeline.yml`) — three Makefile-driven
-jobs, each gated on the previous succeeding:
+## 8. CI/CD Pipeline
+
+`.github/workflows/pipeline.yml` — three Makefile-driven jobs, each
+gated on the previous succeeding:
 
 1. **quality** — `make lint` (flake8), `make test` (unittest)
 2. **train** — `make ingest`, `make train`; asserts
@@ -223,9 +218,7 @@ Any failure — lint error, failing test, training crash, a container that
 never becomes healthy, a bad `/predict` response, or an invalid Helm
 chart — fails the pipeline with a non-zero exit and a readable log.
 
----
-
-## 8. Containerization
+## 9. Containerization
 
 `deploy/docker/Dockerfile` — multi-stage build:
 - **Builder stage:** Python 3.12-slim + `build-essential`, installs
@@ -251,14 +244,12 @@ Pydantic contracts in `heart_risk/service/contracts.py`:
 
 ![FastAPI Swagger UI - Heart Risk Prediction Service](../screenshots/heart_risk_swagger_api.png)
 
----
-
-## 9. Production Deployment (Kubernetes via Helm)
+## 10. Production Deployment (Kubernetes via Helm)
 
 Packaged as a **Helm chart** (`deploy/helm/heart-risk-api/`) rather than
 raw manifests — the assignment explicitly allows either, and a chart
 makes the "bundle the API + its monitoring stack as one installable unit"
-design (Section 10) much cleaner than separate `kubectl apply` files.
+design (Section 11) much cleaner than separate `kubectl apply` files.
 
 - **Deployment:** 2 replicas, resource requests/limits, readiness probe
   (`/health`, 5s delay) and liveness probe (`/health`, 15s delay)
@@ -291,9 +282,7 @@ $ curl -H "Host: heart-risk.local" -X POST .../predict -d '{...}'
 
 ![kubectl get pods -n heart-risk - API (2/2) + Prometheus + Grafana all Running](../screenshots/k8s-pods.jpg)
 
----
-
-## 10. Monitoring & Logging
+## 11. Monitoring & Logging
 
 **Request logging:** every request produces a single **structured JSON
 log line** (trace id, method, route, status, duration) via a custom
@@ -327,7 +316,28 @@ API confirms both the datasource and dashboard are provisioned.
 
 ---
 
-## 11. Architecture Diagram
+# Appendix
+
+## A. Setup Instructions
+
+```bash
+git clone https://github.com/shashankp1502/mlops-assignment.git
+cd mlops-assignment
+
+python3.12 -m venv .venv
+source .venv/bin/activate
+make install
+
+make ingest     # fetches data/raw/heart_disease.csv from UCI
+make train      # trains + tracks in MLflow, saves artifacts/model/
+make test       # 41 unittest cases, ~4s
+make serve      # API on http://localhost:8080
+```
+
+Full step-by-step instructions for Docker, Kubernetes/Helm, and
+monitoring are in the project `README.md`.
+
+## B. Architecture Diagram
 
 ![Architecture diagram](figures/architecture_diagram.png)
 
@@ -335,22 +345,6 @@ The authoritative, version-controlled source for this diagram is a
 Mermaid flowchart in `README.md` (renders natively on GitHub); the PNG
 above is a matching static rendering for this Word/PDF report.
 
----
-
-## 12. Repository Link
+## C. Repository Link
 
 https://github.com/shashankp1502/mlops-assignment
-
-## 13. A note on originality
-
-This pipeline's structure, model choices, feature engineering approach
-(KNN imputation + ordinal encoding + a derived age-group feature), MLflow
-Model Registry usage, `unittest`-based test suite, Makefile-driven CI,
-and the Helm-packaged deployment (API + Ingress + bundled Prometheus/
-Grafana as one chart) were designed independently for this assignment.
-Where choices overlap with general MLOps conventions (e.g. using MLflow,
-Docker, Prometheus/Grafana — all explicitly suggested by the assignment
-brief), the specific implementation — package layout, encoding strategy,
-model registry usage, dashboard panel design, and chart structure — was
-built from first principles for this submission rather than adapted from
-another student's work.
