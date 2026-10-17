@@ -1,0 +1,15 @@
+heart-risk-api has been deployed.
+
+API:
+  Add "{{ .Values.ingress.host }}" to /etc/hosts pointing at your Minikube IP,
+  or run `minikube tunnel` (Docker driver) and then:
+
+    curl http://{{ .Values.ingress.host }}/health
+
+{{- if .Values.monitoring.enabled }}
+
+Monitoring (bundled with this chart):
+  Prometheus: minikube service {{ include "heart-risk-api.fullname" . }}-prometheus -n {{ .Release.Namespace }} --url
+  Grafana:    minikube service {{ include "heart-risk-api.fullname" . }}-grafana -n {{ .Release.Namespace }} --url
+              (login: {{ .Values.monitoring.grafana.adminUser }} / {{ .Values.monitoring.grafana.adminPassword }})
+{{- end }}

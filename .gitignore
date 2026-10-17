@@ -1,0 +1,48 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+*.egg
+.Python
+build/
+dist/
+
+# --- Virtual env ---
+.venv/
+venv/
+env/
+
+# --- Jupyter ---
+.ipynb_checkpoints/
+
+# --- MLflow ---
+mlflow.db
+mlartifacts/
+mlruns/
+
+# --- Data ---
+data/raw/*.csv
+data/interim/*.csv
+!data/raw/.gitkeep
+!data/interim/.gitkeep
+
+# --- Model artifacts (keep metadata.json, ignore the large model dir) ---
+artifacts/model/
+!artifacts/.gitkeep
+
+# --- OS / editor ---
+.DS_Store
+.idea/
+.vscode/
+
+# --- Test / coverage ---
+.pytest_cache/
+.coverage
+htmlcov/
+
+# --- Env files ---
+.env
+
+# --- Helm ---
+*.tgz

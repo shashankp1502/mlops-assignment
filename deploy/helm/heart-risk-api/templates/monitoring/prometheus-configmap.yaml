@@ -1,0 +1,23 @@
+{{- if .Values.monitoring.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "heart-risk-api.fullname" . }}-prometheus-config
+  labels:
+    {{- include "heart-risk-api.labels" . | nindent 4 }}
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: {{ .Values.monitoring.prometheus.scrapeIntervalSeconds }}s
+
+    scrape_configs:
+      - job_name: 'heart-risk-api'
+        metrics_path: /metrics
+        static_configs:
+          - targets:
+              - '{{ include "heart-risk-api.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.port }}'
+
+      - job_name: 'prometheus-self'
+        static_configs:
+          - targets: ['localhost:9090']
+{{- end }}

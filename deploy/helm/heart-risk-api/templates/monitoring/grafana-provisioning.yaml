@@ -1,0 +1,173 @@
+{{- if .Values.monitoring.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "heart-risk-api.fullname" . }}-grafana-datasource
+  labels:
+    {{- include "heart-risk-api.labels" . | nindent 4 }}
+data:
+  datasource.yml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        access: proxy
+        url: http://{{ include "heart-risk-api.fullname" . }}-prometheus.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.monitoring.prometheus.port }}
+        isDefault: true
+        editable: true
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "heart-risk-api.fullname" . }}-grafana-dashboard-provider
+  labels:
+    {{- include "heart-risk-api.labels" . | nindent 4 }}
+data:
+  provider.yml: |
+    apiVersion: 1
+    providers:
+      - name: default
+        orgId: 1
+        folder: ""
+        type: file
+        updateIntervalSeconds: 30
+        options:
+          path: /var/lib/grafana/dashboards
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "heart-risk-api.fullname" . }}-grafana-dashboard
+  labels:
+    {{- include "heart-risk-api.labels" . | nindent 4 }}
+data:
+  heart-risk-overview.json: |
+    {
+      "title": "Heart Risk API — Service Health",
+      "uid": "heart-risk-api-health",
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "10s",
+      "time": { "from": "now-30m", "to": "now" },
+      "panels": [
+        {
+          "id": 1,
+          "title": "Predictions by risk label",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+          "targets": [
+            {
+              "expr": "sum by (risk_label) (increase(heart_risk_predictions_total[5m]))",
+              "legendFormat": "{{"{{"}}risk_label{{"}}"}}"
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "title": "Requests per route (share of total)",
+          "type": "piechart",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+          "targets": [
+            {
+              "expr": "sum by (route) (heart_risk_http_requests_total)",
+              "legendFormat": "{{"{{"}}route{{"}}"}}"
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "title": "Latency: average vs p99 (seconds)",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+          "targets": [
+            {
+              "expr": "sum(rate(heart_risk_request_duration_seconds_sum[5m])) / sum(rate(heart_risk_request_duration_seconds_count[5m]))",
+              "legendFormat": "average"
+            },
+            {
+              "expr": "histogram_quantile(0.99, sum by (le) (rate(heart_risk_request_duration_seconds_bucket[5m])))",
+              "legendFormat": "p99"
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "title": "Error rate (% of requests returning 4xx/5xx)",
+          "type": "gauge",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+          "fieldConfig": { "defaults": { "unit": "percent", "max": 100, "min": 0 } },
+          "targets": [
+            {
+              "expr": "100 * sum(rate(heart_risk_http_requests_total{status=~\"4..|5..\"}[5m])) / sum(rate(heart_risk_http_requests_total[5m]))"
+            }
+          ]
+        }
+      ]
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "heart-risk-api.fullname" . }}-grafana
+  labels:
+    {{- include "heart-risk-api.labels" . | nindent 4 }}
+    app.kubernetes.io/component: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "heart-risk-api.name" . }}-grafana
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "heart-risk-api.name" . }}-grafana
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: grafana
+          image: {{ .Values.monitoring.grafana.image }}
+          ports:
+            - containerPort: 3000
+          env:
+            - name: GF_SECURITY_ADMIN_USER
+              value: {{ .Values.monitoring.grafana.adminUser | quote }}
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              value: {{ .Values.monitoring.grafana.adminPassword | quote }}
+            - name: GF_USERS_ALLOW_SIGN_UP
+              value: "false"
+          volumeMounts:
+            - name: datasource
+              mountPath: /etc/grafana/provisioning/datasources
+            - name: dashboard-provider
+              mountPath: /etc/grafana/provisioning/dashboards
+            - name: dashboard
+              mountPath: /var/lib/grafana/dashboards
+      volumes:
+        - name: datasource
+          configMap:
+            name: {{ include "heart-risk-api.fullname" . }}-grafana-datasource
+        - name: dashboard-provider
+          configMap:
+            name: {{ include "heart-risk-api.fullname" . }}-grafana-dashboard-provider
+        - name: dashboard
+          configMap:
+            name: {{ include "heart-risk-api.fullname" . }}-grafana-dashboard
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "heart-risk-api.fullname" . }}-grafana
+  labels:
+    {{- include "heart-risk-api.labels" . | nindent 4 }}
+    app.kubernetes.io/component: monitoring
+spec:
+  type: NodePort
+  selector:
+    app.kubernetes.io/name: {{ include "heart-risk-api.name" . }}-grafana
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - port: {{ .Values.monitoring.grafana.port }}
+      targetPort: 3000
+      nodePort: {{ .Values.monitoring.grafana.nodePort }}
+{{- end }}

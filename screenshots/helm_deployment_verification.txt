@@ -1,0 +1,29 @@
+=== helm list ===
+NAME          	NAMESPACE 	REVISION	UPDATED                             	STATUS  	CHART               	APP VERSION
+heart-risk-api	heart-risk	1       	2026-10-17 23:21:11.238956 +0530 IST	deployed	heart-risk-api-0.1.0	0.1.0      
+
+=== kubectl get all -n heart-risk ===
+NAME                                             READY   STATUS    RESTARTS   AGE
+pod/heart-risk-api-5c8885665d-lsnnv              1/1     Running   0          55s
+pod/heart-risk-api-5c8885665d-sgp5g              1/1     Running   0          55s
+pod/heart-risk-api-grafana-94c7c44bc-hbs6m       1/1     Running   0          55s
+pod/heart-risk-api-prometheus-779656b487-kxcx8   1/1     Running   0          55s
+
+NAME                                TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)          AGE
+service/heart-risk-api              ClusterIP   10.98.58.214    <none>        80/TCP           55s
+service/heart-risk-api-grafana      NodePort    10.99.201.204   <none>        3000:31030/TCP   55s
+service/heart-risk-api-prometheus   NodePort    10.98.72.64     <none>        9090:31090/TCP   55s
+
+NAME                                        READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/heart-risk-api              2/2     2            2           55s
+deployment.apps/heart-risk-api-grafana      1/1     1            1           55s
+deployment.apps/heart-risk-api-prometheus   1/1     1            1           55s
+
+NAME                                       CLASS   HOSTS              ADDRESS        PORTS   AGE
+ingress.networking.k8s.io/heart-risk-api   nginx   heart-risk.local   192.168.49.2   80      55s
+
+=== GET /health (via Ingress) ===
+{"status":"ok","model_ready":true,"model_name":"heart-risk-classifier","model_version":"1"}
+
+=== POST /predict (via Ingress) ===
+{"prediction":0,"risk_label":"low_risk","confidence":0.862,"probability_disease":0.138,"model_name":"heart-risk-classifier","model_version":"1"}

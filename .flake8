@@ -1,0 +1,4 @@
+[flake8]
+max-line-length = 115
+exclude = .venv,.git,__pycache__,notebooks,mlruns,artifacts,data,deploy/helm
+ignore = E203,W503

@@ -1,0 +1,138 @@
+name: pipeline
+
+# Three stages (quality -> train -> containerize), each driven through
+# Makefile targets rather than inlined shell commands, so the exact same
+# `make lint` / `make test` / `make train` a developer runs locally is
+# what CI runs too. Any failure stops the pipeline with a non-zero exit
+# and a readable log.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  quality:
+    name: Lint + unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+
+      - name: Install dependencies
+        run: make install
+
+      - name: Lint (flake8)
+        run: make lint
+
+      - name: Unit tests (unittest)
+        shell: bash
+        run: set -o pipefail; make test 2>&1 | tee test-output.log
+
+      - name: Upload test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-reports
+          path: test-output.log
+
+  train:
+    name: Ingest data + train models (MLflow)
+    needs: quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+
+      - name: Install dependencies
+        run: make install
+
+      - name: Ingest dataset
+        run: make ingest
+
+      - name: Train Decision Tree + Gradient Boosting with MLflow tracking
+        run: make train
+
+      - name: Print champion metadata (fails the build if missing)
+        run: python -c "import json; print(json.dumps(json.load(open('artifacts/metadata.json')), indent=2))"
+
+      - name: Upload model artifacts + MLflow store
+        uses: actions/upload-artifact@v4
+        with:
+          name: heart-risk-model
+          path: |
+            artifacts/model/
+            artifacts/metadata.json
+            mlflow.db
+
+  containerize:
+    name: Build image, smoke-test, lint Helm chart
+    needs: train
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download trained model artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: heart-risk-model
+          path: .
+
+      - name: Build Docker image
+        run: make docker-build
+
+      - name: Run container
+        run: make docker-run
+
+      - name: Wait for the service to report healthy
+        run: |
+          for i in $(seq 1 15); do
+            if curl -sf http://localhost:8080/health; then exit 0; fi
+            sleep 2
+          done
+          echo "Service never became healthy" >&2
+          docker logs heart-risk-api
+          exit 1
+
+      - name: Smoke-test /predict
+        run: |
+          curl -sf -X POST http://localhost:8080/predict \
+            -H "Content-Type: application/json" \
+            -d '{"age":58,"sex":1,"cp":2,"trestbps":140,"chol":211,"fbs":0,"restecg":0,"thalach":165,"exang":0,"oldpeak":0.0,"slope":1,"ca":0,"thal":3}' \
+            | tee predict-response.json
+          python -c "import json; d=json.load(open('predict-response.json')); assert d['prediction'] in (0,1); assert 'confidence' in d"
+
+      - name: Dump container logs
+        if: always()
+        run: docker logs heart-risk-api > container.log 2>&1 || true
+
+      - name: Stop container
+        if: always()
+        run: docker rm -f heart-risk-api || true
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+
+      - name: Lint Helm chart
+        run: make helm-lint
+
+      - name: Upload container smoke-test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: containerize-reports
+          path: |
+            predict-response.json
+            container.log

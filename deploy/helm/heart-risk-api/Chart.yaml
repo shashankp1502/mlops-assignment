@@ -1,0 +1,8 @@
+apiVersion: v2
+name: heart-risk-api
+description: Heart disease risk prediction API (UCI Cleveland dataset) with optional bundled Prometheus + Grafana monitoring
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+maintainers:
+  - name: Surbhi Arya

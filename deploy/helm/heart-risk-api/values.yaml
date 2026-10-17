@@ -1,0 +1,70 @@
+replicaCount: 2
+
+image:
+  repository: heart-risk-api
+  tag: latest
+  pullPolicy: IfNotPresent
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  name: ""
+  automount: true
+  annotations: {}
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+ingress:
+  enabled: true
+  className: nginx
+  host: heart-risk.local
+  path: /
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+probes:
+  readiness:
+    path: /health
+    initialDelaySeconds: 5
+    periodSeconds: 10
+  liveness:
+    path: /health
+    initialDelaySeconds: 15
+    periodSeconds: 20
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8080"
+  prometheus.io/path: "/metrics"
+
+# Bundled monitoring stack (Prometheus + Grafana), templated as part of
+# this same chart rather than deployed via separate raw manifests -- a
+# single `helm install` brings up the API *and* its observability stack.
+monitoring:
+  enabled: true
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    port: 9090
+    nodePort: 31090
+    scrapeIntervalSeconds: 10
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    port: 3000
+    nodePort: 31030
+    adminUser: admin
+    adminPassword: admin

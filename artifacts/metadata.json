@@ -1,0 +1,60 @@
+{
+  "champion_model": "gradient_boosting",
+  "trained_at_utc": "2026-10-17T17:35:49.499853+00:00",
+  "features": [
+    "age",
+    "trestbps",
+    "chol",
+    "thalach",
+    "oldpeak",
+    "cp",
+    "restecg",
+    "slope",
+    "thal",
+    "ca",
+    "sex",
+    "fbs",
+    "exang"
+  ],
+  "best_params": {
+    "clf__subsample": 0.85,
+    "clf__n_estimators": 50,
+    "clf__max_depth": 2,
+    "clf__learning_rate": 0.05
+  },
+  "cv_f1_mean": 0.7989994749720151,
+  "holdout_metrics": {
+    "accuracy": 0.819672131147541,
+    "precision": 0.8695652173913043,
+    "recall": 0.7142857142857143,
+    "f1": 0.7843137254901961,
+    "roc_auc": 0.9393939393939393
+  },
+  "mlflow_run_id": "213e7407709f47469aeb3043f37d9270",
+  "registered_model_name": "heart-risk-classifier",
+  "registered_model_version": 1,
+  "all_candidates": [
+    {
+      "name": "decision_tree",
+      "holdout_metrics": {
+        "accuracy": 0.8032786885245902,
+        "precision": 0.8333333333333334,
+        "recall": 0.7142857142857143,
+        "f1": 0.7692307692307693,
+        "roc_auc": 0.9166666666666665
+      },
+      "cv_f1_mean": 0.7358366271409749
+    },
+    {
+      "name": "gradient_boosting",
+      "holdout_metrics": {
+        "accuracy": 0.819672131147541,
+        "precision": 0.8695652173913043,
+        "recall": 0.7142857142857143,
+        "f1": 0.7843137254901961,
+        "roc_auc": 0.9393939393939393
+      },
+      "cv_f1_mean": 0.7989994749720151
+    }
+  ]
+}
