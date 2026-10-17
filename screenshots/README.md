@@ -1,22 +1,20 @@
-# Screenshots checklist
+# Screenshots index
 
-CLI-based verification output is already captured here as text
-(`helm_deployment_verification.txt`, `monitoring_verification.txt`) from
-an actual end-to-end Minikube + Helm deployment.
+Real screenshots captured from an actual end-to-end run of this project
+(local Docker, Minikube + Helm deployment, and MLflow). Embedded directly
+in `docs/report.md` / `docs/report.docx`.
 
-For the final written report, add real GUI screenshots (PNG):
-
-- [ ] `docker images` / `docker ps` showing the built `heart-risk-api` image and a running (healthy) container
-- [ ] GitHub Actions run — all 3 jobs (quality, train, containerize) green
-- [ ] GitHub Actions `train` job log showing both models' metrics
-- [ ] `kubectl -n heart-risk get pods,svc,ingress` (2/2 API replicas + Prometheus + Grafana Running)
-- [ ] `helm list -n heart-risk` showing the deployed release
-- [ ] Browser hitting `/docs` (FastAPI Swagger UI) and a live `/predict` call
-- [ ] Prometheus UI `/targets` showing `heart-risk-api` as **UP**
-- [ ] Grafana dashboard "Heart Risk API — Service Health" with live data (pie chart, gauge, latency panels)
-- [ ] MLflow UI comparing the Decision Tree vs Gradient Boosting runs, plus the registered model version in the Model Registry tab
-- [ ] MLflow run artifacts tab showing the feature-importance plot
-
-Naming convention: `0X_description.png` (e.g. `01_docker_build.png`,
-`02_github_actions_pipeline.png`, `03_k8s_helm_pods.png`,
-`04_grafana_dashboard.png`).
+| File | Shows |
+|---|---|
+| `heart_risk_swagger_api.png` | FastAPI Swagger UI (`/docs`) — auto-generated API documentation |
+| `k8s-pods.jpg` | `kubectl get pods -n heart-risk` — 2/2 API replicas + Prometheus + Grafana all Running |
+| `prometheus.png` | Prometheus `/targets` page — `heart-risk-api` scrape target UP |
+| `grafana.png` | Grafana "Heart Risk API — Service Health" dashboard with live traffic (pie chart, gauge, dual-line latency) |
+| `model_comaprision.png` | MLflow UI — Decision Tree vs Gradient Boosting run comparison (params/tags) |
+| `model/comparision_matrix.png` | MLflow UI — same comparison, metrics section |
+| `model/decision_tree_confusion_matrix.png` | MLflow artifact |
+| `model/decision_tree_roc_curve.png` | MLflow artifact |
+| `model/decision_tree_feature_importance.png` | MLflow artifact |
+| `model/gradient_boosting_confusion_matrix.png` | MLflow artifact |
+| `model/gradient_boosting_roc_curve.png` | MLflow artifact |
+| `model/gradient_boosting_feature_importance.png` | MLflow artifact |

@@ -126,9 +126,22 @@ every holdout metric except recall (tied). This tracks with expectations
 — boosting an ensemble of shallow trees (max_depth=2 here) typically
 generalizes better than one deeper tree on tabular data this size,
 without the variance a single unconstrained tree is prone to. The
-feature-importance plots (logged as MLflow artifacts, viewable via
-`mlflow ui`) confirm `thal`, `cp`, and `oldpeak` as the top drivers for
-both models, consistent with the EDA.
+feature-importance plots confirm `thal`, `cp`, and `oldpeak` (labelled
+`ordinal__cp`, `ordinal__ca`, `numeric__oldpeak`, `ordinal__thal` after
+the preprocessing pipeline) as the top drivers for both models,
+consistent with the EDA.
+
+![Decision Tree confusion matrix](../screenshots/model/decision_tree_confusion_matrix.png)
+
+![Decision Tree ROC curve](../screenshots/model/decision_tree_roc_curve.png)
+
+![Decision Tree feature importance](../screenshots/model/decision_tree_feature_importance.png)
+
+![Gradient Boosting confusion matrix](../screenshots/model/gradient_boosting_confusion_matrix.png)
+
+![Gradient Boosting ROC curve](../screenshots/model/gradient_boosting_roc_curve.png)
+
+![Gradient Boosting feature importance](../screenshots/model/gradient_boosting_feature_importance.png)
 
 ---
 
@@ -151,6 +164,14 @@ experiment with:
 ```bash
 mlflow ui --backend-store-uri sqlite:///mlflow.db
 ```
+
+Side-by-side run comparison from the MLflow UI (`gradient_boosting` vs.
+`decision_tree`, matching the results table in Section 4 exactly,
+including the `champion=true` tag set on the winner):
+
+![MLflow run comparison - parameters and tags](../screenshots/model_comaprision.png)
+
+![MLflow run comparison - metrics](../screenshots/model/comparision_matrix.png)
 
 ---
 
@@ -225,6 +246,11 @@ curl http://localhost:8080/health
 # {"status":"ok","model_ready":true,"model_name":"heart-risk-classifier","model_version":"1"}
 ```
 
+The FastAPI interactive docs (Swagger UI), auto-generated from the
+Pydantic contracts in `heart_risk/service/contracts.py`:
+
+![FastAPI Swagger UI - Heart Risk Prediction Service](../screenshots/heart_risk_swagger_api.png)
+
 ---
 
 ## 9. Production Deployment (Kubernetes via Helm)
@@ -263,6 +289,8 @@ $ curl -H "Host: heart-risk.local" -X POST .../predict -d '{...}'
 {"prediction":0,"risk_label":"low_risk","confidence":0.862,...}
 ```
 
+![kubectl get pods -n heart-risk - API (2/2) + Prometheus + Grafana all Running](../screenshots/k8s-pods.jpg)
+
 ---
 
 ## 10. Monitoring & Logging
@@ -292,6 +320,10 @@ service — no separate manifests to apply. Grafana auto-provisions:
 Verified live against real traffic generated through the Ingress:
 Prometheus reports the `heart-risk-api` target as **UP**, and Grafana's
 API confirms both the datasource and dashboard are provisioned.
+
+![Prometheus targets - heart-risk-api UP](../screenshots/prometheus.png)
+
+![Grafana - Heart Risk API Service Health dashboard with live data](../screenshots/grafana.png)
 
 ---
 
